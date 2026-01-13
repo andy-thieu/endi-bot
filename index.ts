@@ -602,19 +602,18 @@ function createTeamMessage(
   const { team1, team2 } = createTeams(players);
 
   const shuffledByText = shuffledByUserId
-    ? `\n\n🔀 Zuletzt gemischt von: <@${shuffledByUserId}>`
+    ? ` | Teams: <@${shuffledByUserId}>`
     : "";
 
+  const formatTeam = (team: Player[], teamName: string): string => {
+    return `**${teamName}:** ${team.map((p) => formatPlayer(p)).join(", ")}`;
+  };
+
   const content = `
-**Team 1 (${team1.length} Spieler):**
-${team1.map((p) => `• ${formatPlayer(p)}`).join("\n")}
-
-**Team 2 (${team2.length} Spieler):**
-${team2.map((p) => `• ${formatPlayer(p)}`).join("\n")}
-
-📊 **Gesamt:** ${players.length} Spieler${shuffledByText}
-
-
+**Custom Teams**
+${formatTeam(team1, "Team 1")}
+${formatTeam(team2, "Team 2")}
+-# ${players.length} Spieler${shuffledByText}
   `.trim();
 
   const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -834,40 +833,32 @@ function createTestTeamMessage(
 
   const formatTeam = (team: PlayerWithRole[], teamName: string): string => {
     if (hasRoles) {
-      return `**${teamName}**\n\`\`\`\n${team
-        .map((p) => {
-          const playerName =
-            "name" in p.player ? p.player.name : p.player.displayName;
-          return `${(p.role || "").padEnd(8)} │ ${playerName}`;
-        })
-        .join("\n")}\n\`\`\``;
-    }
-    return `**${teamName}**\n${team
-      .map((p) => {
+      const players = team.map((p) => {
         const playerName =
           "name" in p.player ? p.player.name : p.player.displayName;
-        return `> ${playerName}`;
-      })
-      .join("\n")}`;
+        return `${p.role}: ${playerName}`;
+      });
+      return `**${teamName}:** ${players.join(" | ")}`;
+    }
+    const players = team.map((p) => {
+      return "name" in p.player ? p.player.name : p.player.displayName;
+    });
+    return `**${teamName}:** ${players.join(", ")}`;
   };
 
   const teamsShuffledText = teamsShuffledByUserId
-    ? `\n🔀 Teams gemischt von <@${teamsShuffledByUserId}>`
+    ? ` | Teams: <@${teamsShuffledByUserId}>`
     : "";
 
   const rolesShuffledText = rolesShuffledByUserId
-    ? `\n🎮 Rollen gemischt von <@${rolesShuffledByUserId}>`
+    ? ` | Rollen: <@${rolesShuffledByUserId}>`
     : "";
 
   return `
-# Custom Teams
-
+**Custom Teams**
 ${formatTeam(team1, "Team 1")}
-
 ${formatTeam(team2, "Team 2")}
-
-───────────────────
-📊 **${team1.length + team2.length} Spieler**${teamsShuffledText}${rolesShuffledText}
+-# ${team1.length + team2.length} Spieler${teamsShuffledText}${rolesShuffledText}
   `.trim();
 }
 
