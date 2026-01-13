@@ -52,6 +52,12 @@ const commands = [
     .setName("delete")
     .setDescription("Löscht alle Bot-Nachrichten in diesem Channel")
     .toJSON(),
+  new SlashCommandBuilder()
+    .setName("testcustom")
+    .setDescription(
+      "Testet die Random Team Funktion mit Mock-Spielern (T1 + G2)",
+    )
+    .toJSON(),
 ];
 
 const rest = new REST({ version: "10" }).setToken(TOKEN!);
@@ -125,6 +131,33 @@ const excludedUsers = new Map<string, Set<string>>();
 // Speicher für den letzten Shuffler pro Nachricht (Message ID -> User ID)
 const lastShuffledBy = new Map<string, string>();
 
+// Speicher für den letzten Rollen-Shuffler pro Nachricht (Message ID -> User ID)
+const lastRolesShuffledBy = new Map<string, string>();
+
+// League of Legends Rollen
+const LOL_ROLES = ["Top", "Jungle", "Mid", "ADC", "Support"];
+
+// Mock-Spieler für Test (T1 + G2)
+const MOCK_PLAYERS: Player[] = [
+  { name: "Doran" },
+  { name: "Oner" },
+  { name: "Faker" },
+  { name: "Gumayusi" },
+  { name: "Keria" },
+  { name: "Caps" },
+  { name: "Hans Sama" },
+  { name: "Jankos" },
+  { name: "Broken Blade" },
+  { name: "Endi" },
+];
+
+// Speicher für Team-Rollen (Message ID -> { team1: PlayerWithRole[], team2: PlayerWithRole[] })
+type PlayerWithRole = { player: Player; role?: string };
+const teamRoles = new Map<
+  string,
+  { team1: PlayerWithRole[]; team2: PlayerWithRole[] }
+>();
+
 client.on("clientReady", () => {
   console.log(`Bot ist online als ${client.user?.tag}!`);
   registerCommands();
@@ -141,6 +174,9 @@ client.on("interactionCreate", async (interaction) => {
     }
     if (interaction.commandName === "delete") {
       await handleDeleteCommand(interaction);
+    }
+    if (interaction.commandName === "testcustom") {
+      await handleTestCustomCommand(interaction);
     }
   }
 
@@ -167,6 +203,12 @@ client.on("interactionCreate", async (interaction) => {
     }
     if (interaction.customId === "reroll_arena") {
       await handleRerollArenaButton(interaction);
+    }
+    if (interaction.customId === "reroll_test_teams") {
+      await handleRerollTestTeamsButton(interaction);
+    }
+    if (interaction.customId === "assign_roles") {
+      await handleAssignRolesButton(interaction);
     }
   }
 
@@ -734,6 +776,202 @@ async function handleNewNamesButton(interaction: ButtonInteraction) {
   modal.addComponents(actionRow);
 
   await interaction.showModal(modal);
+}
+
+// Test Custom Command Handler (mit Mock-Spielern)
+async function handleTestCustomCommand(
+  interaction: ChatInputCommandInteraction,
+) {
+  // Teams aus Mock-Spielern erstellen
+  const { team1, team2 } = createTeams(MOCK_PLAYERS);
+
+  // Teams mit Rollen-Struktur speichern (ohne Rollen zunächst)
+  const team1WithRoles: PlayerWithRole[] = team1.map((p) => ({ player: p }));
+  const team2WithRoles: PlayerWithRole[] = team2.map((p) => ({ player: p }));
+
+  const content = createTestTeamMessage(team1WithRoles, team2WithRoles);
+
+  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("reroll_test_teams")
+      .setLabel("Neu mischen")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId("assign_roles")
+      .setLabel("Rollen zuweisen")
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  const response = await interaction.reply({
+    content,
+    components: [buttons],
+    withResponse: true,
+  });
+
+  // Session speichern
+  const messageId = response.resource!.message!.id;
+  activeTeamSessions.set(messageId, MOCK_PLAYERS);
+  teamRoles.set(messageId, { team1: team1WithRoles, team2: team2WithRoles });
+}
+
+// Hilfsfunktion: Test-Team-Nachricht formatieren (mit optionalen Rollen)
+function createTestTeamMessage(
+  team1: PlayerWithRole[],
+  team2: PlayerWithRole[],
+  teamsShuffledByUserId?: string,
+  rolesShuffledByUserId?: string,
+): string {
+  const hasRoles = team1.some((p) => p.role);
+
+  const formatPlayerWithRole = (p: PlayerWithRole): string => {
+    const playerName =
+      "name" in p.player ? p.player.name : p.player.displayName;
+    if (p.role) {
+      return `\`${p.role.padEnd(7)}\` ${playerName}`;
+    }
+    return `${playerName}`;
+  };
+
+  const formatTeam = (team: PlayerWithRole[], teamName: string): string => {
+    if (hasRoles) {
+      return `**${teamName}**\n\`\`\`\n${team
+        .map((p) => {
+          const playerName =
+            "name" in p.player ? p.player.name : p.player.displayName;
+          return `${(p.role || "").padEnd(8)} │ ${playerName}`;
+        })
+        .join("\n")}\n\`\`\``;
+    }
+    return `**${teamName}**\n${team
+      .map((p) => {
+        const playerName =
+          "name" in p.player ? p.player.name : p.player.displayName;
+        return `> ${playerName}`;
+      })
+      .join("\n")}`;
+  };
+
+  const teamsShuffledText = teamsShuffledByUserId
+    ? `\n🔀 Teams gemischt von <@${teamsShuffledByUserId}>`
+    : "";
+
+  const rolesShuffledText = rolesShuffledByUserId
+    ? `\n🎮 Rollen gemischt von <@${rolesShuffledByUserId}>`
+    : "";
+
+  return `
+# Custom Teams
+
+${formatTeam(team1, "Team 1")}
+
+${formatTeam(team2, "Team 2")}
+
+───────────────────
+📊 **${team1.length + team2.length} Spieler**${teamsShuffledText}${rolesShuffledText}
+  `.trim();
+}
+
+// Button Handler für Test Teams Re-Roll
+async function handleRerollTestTeamsButton(interaction: ButtonInteraction) {
+  const messageId = interaction.message.id;
+  const players = activeTeamSessions.get(messageId);
+
+  if (!players) {
+    await interaction.reply({
+      content:
+        "❌ Diese Team-Session ist abgelaufen. Nutze /testcustom erneut.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  // Neue Teams generieren
+  const { team1, team2 } = createTeams(players);
+
+  // Teams mit Rollen-Struktur speichern (Rollen zurücksetzen)
+  const team1WithRoles: PlayerWithRole[] = team1.map((p) => ({ player: p }));
+  const team2WithRoles: PlayerWithRole[] = team2.map((p) => ({ player: p }));
+
+  // Rollen-Shuffler zurücksetzen wenn Teams neu gemischt werden
+  lastRolesShuffledBy.delete(messageId);
+
+  const content = createTestTeamMessage(
+    team1WithRoles,
+    team2WithRoles,
+    interaction.user.id,
+  );
+
+  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("reroll_test_teams")
+      .setLabel("Neu mischen")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId("assign_roles")
+      .setLabel("Rollen zuweisen")
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  // Session aktualisieren
+  teamRoles.set(messageId, { team1: team1WithRoles, team2: team2WithRoles });
+  lastShuffledBy.set(messageId, interaction.user.id);
+
+  await interaction.update({ content, components: [buttons] });
+}
+
+// Button Handler für Rollen-Zuweisung
+async function handleAssignRolesButton(interaction: ButtonInteraction) {
+  const messageId = interaction.message.id;
+  const teams = teamRoles.get(messageId);
+
+  if (!teams) {
+    await interaction.reply({
+      content:
+        "❌ Diese Team-Session ist abgelaufen. Nutze /testcustom erneut.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  // Rollen zufällig zuweisen (5 Rollen für max 5 Spieler pro Team)
+  const shuffledRoles1 = shuffleArray([...LOL_ROLES]);
+  const shuffledRoles2 = shuffleArray([...LOL_ROLES]);
+
+  const team1WithRoles: PlayerWithRole[] = teams.team1.map((p, i) => ({
+    player: p.player,
+    role: shuffledRoles1[i],
+  }));
+
+  const team2WithRoles: PlayerWithRole[] = teams.team2.map((p, i) => ({
+    player: p.player,
+    role: shuffledRoles2[i],
+  }));
+
+  // Rollen-Shuffler speichern
+  lastRolesShuffledBy.set(messageId, interaction.user.id);
+
+  const content = createTestTeamMessage(
+    team1WithRoles,
+    team2WithRoles,
+    lastShuffledBy.get(messageId),
+    interaction.user.id,
+  );
+
+  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("reroll_test_teams")
+      .setLabel("Neu mischen")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId("assign_roles")
+      .setLabel("Rollen neu zuweisen")
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  // Session aktualisieren
+  teamRoles.set(messageId, { team1: team1WithRoles, team2: team2WithRoles });
+
+  await interaction.update({ content, components: [buttons] });
 }
 
 // Delete Command Handler
