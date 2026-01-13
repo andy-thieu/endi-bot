@@ -18,6 +18,16 @@ import {
   MessageFlags,
 } from "discord.js";
 
+import { Hono } from "hono";
+
+const app = new Hono();
+
+app.get("/", (c) => {
+  return c.text("Discord Bot aktiv!");
+});
+
+export default app;
+
 // Bot Token und Client ID hier eintragen
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
