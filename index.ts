@@ -64,22 +64,18 @@ const rest = new REST({ version: "10" }).setToken(TOKEN!);
 
 async function registerCommands() {
   try {
-    console.log("Registriere Slash Commands...");
+    console.log("Registriere Slash Commands (GLOBAL)...");
 
-    // Globale Commands löschen
-    await rest.put(Routes.applicationCommands(CLIENT_ID!), { body: [] });
-    console.log("Globale Commands gelöscht!");
+    // WICHTIG: Wir nutzen hier Routes.applicationCommands (ohne Guild ID)
+    // Das sorgt dafür, dass die Buttons im Profil erscheinen.
+    await rest.put(Routes.applicationCommands(CLIENT_ID!), {
+      body: commands,
+    });
 
-    // Guild-spezifische Commands registrieren (sofort aktiv)
-    const guilds = client.guilds.cache;
-    for (const [guildId, guild] of guilds) {
-      await rest.put(Routes.applicationGuildCommands(CLIENT_ID!, guildId), {
-        body: commands,
-      });
-      console.log(`Commands für Guild "${guild.name}" registriert!`);
-    }
-
-    console.log("Slash Commands erfolgreich registriert!");
+    console.log("Slash Commands erfolgreich GLOBAL registriert!");
+    console.log(
+      "HINWEIS: Es kann bis zu 1 Stunde dauern, bis die Buttons im Profil sichtbar sind (Discord Cache).",
+    );
   } catch (error) {
     console.error("Fehler beim Registrieren der Commands:", error);
   }
