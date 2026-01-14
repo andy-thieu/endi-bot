@@ -1,75 +1,37 @@
 # Discord Team Generator Bot
 
-Ein Discord Bot der mit `/custom` zufällige Teams aus Voice Channel Mitgliedern erstellt.
+A Discord bot that creates random teams from voice channel members using the `/custom` command.
 
 ## Features
 
-- 🎮 `/custom` Command zum Erstellen von 2 zufälligen Teams
-- 🎤 Liest automatisch alle User aus deinem Voice Channel
-- ➕ Option zum Hinzufügen von zusätzlichen Spielern (die nicht im Voice sind)
-- 🔀 Fisher-Yates Shuffle für faire Randomisierung
+- 🎮 `/custom` command to create 2 random teams
+- 🎤 Automatically reads all users from your voice channel
+- ➕ Option to add additional players (who aren't in voice)
+- 🔀 Fisher-Yates shuffle for fair randomization
 
-## Setup
+## Tech Stack
 
-### 1. Discord Bot erstellen
+- **Runtime:** [Bun](https://bun.sh/)
+- **Language:** TypeScript
+- **Library:** [discord.js](https://discord.js.org/)
 
-1. Gehe zum [Discord Developer Portal](https://discord.com/developers/applications)
-2. Klicke auf "New Application" und gib einen Namen ein
-3. Gehe zu "Bot" → "Add Bot"
-4. Kopiere den **Bot Token**
-5. Gehe zu "OAuth2" → kopiere die **Client ID**
+## How It Works
 
-### 2. Bot Berechtigungen
+1. Join a voice channel
+2. Use the `/custom` slash command
+3. Optionally add extra players via the modal
+4. Teams are randomly generated and displayed with interactive buttons to reshuffle
 
-Unter "OAuth2" → "URL Generator":
-
-- Scopes: `bot`, `applications.commands`
-- Bot Permissions: `Send Messages`, `Use Slash Commands`
-
-Nutze die generierte URL um den Bot auf deinen Server einzuladen.
-
-### 3. Umgebungsvariablen
-
-Erstelle eine `.env` Datei (oder kopiere `.env.example`):
-
-```bash
-DISCORD_TOKEN=dein_bot_token_hier
-DISCORD_CLIENT_ID=deine_client_id_hier
-```
-
-### 4. Dependencies installieren
-
-```bash
-bun install
-```
-
-### 5. Bot starten
-
-```bash
-bun run index.ts
-```
-
-## Verwendung
-
-1. Gehe in einen Voice Channel
-2. Tippe `/custom` in einen Text Channel
-3. Ein Modal erscheint - hier kannst du optional zusätzliche Spieler hinzufügen (kommagetrennt)
-4. Die Teams werden zufällig erstellt und angezeigt
-
-## Beispiel Output
+## Example Output
 
 ```
-🎮 Teams wurden erstellt!
-
-🔵 Team 1 (3 Spieler):
-• Max
-• Lisa
-• Tom
-
-🔴 Team 2 (2 Spieler):
-• Anna
-• Felix
-
-📊 Gesamt: 5 Spieler
-➕ Hinzugefügt: Felix
+**Custom Teams**
+**Team 1**
+> @Max
+> @Lisa
+> @Tom
+**Team 2**
+> @Anna
+> @Felix
+5 players
 ```
